@@ -1,19 +1,32 @@
 from typing import Dict, List, Set
 
 class CharacterSet:
-    def __init__(self) -> None:
-        # Any Unicode character c within U+000000 <= c < self.intervals[0] is included in this character set.
-        # Any character c withing self.intervals[0] <= c < self.interval[1] is not.
-        # As such, intervals are alternatively included or not in this character set.
-        # When all Unicode characters are included in this set, self.intervals = {U+110000}
-        # Also when no character is included in this set, self.intervals = {U+000000}
-        self.intervals: List[int] = {0x110000} # ordered list
+    SENTINEL = 0x110000
+
+    def __init__(self, intervals: List[int] = [0, CharacterSet.SENTINEL]) -> None:
+        # This set includes 
+        #     self.intervals[0] <= c < self.intervals[1]
+        #     self.intervals[2] <= c < self.intervals[3]
+        #     ...
+        # and does not include
+        #     U+000000 <= c < self.intervals[0] (if 0 < self.intervals[0])
+        #     self.intervals[1] <= c < self.intervals[2], 
+        #     self.intervals[3] <= c < self.intervals[4], 
+        #     ...
+        intervals = sorted(set(intervals))
+        if intervals[-1] != CharacterSet.SENTINEL:
+            intervals.append(CharacterSet.SENTINEL)
+
+        self.intervals: List[int] = intervals # must be ordered list and terminated with SENTINEL
 
     def empty(self):
         self.intervals.clear()
-        self.intervals.append(0)
+        self.intervals.append(CharacterSet.SENTINEL)
 
-    def isin(self, c: str) -> bool:
+    def is_empty(self):
+        return len(self.intervals) == 1
+
+    def includes(self, c: str) -> bool:
         codepoint = ord(c[0])
         included = False
         for index, border in enumerate(self.intervals):
@@ -21,6 +34,25 @@ class CharacterSet:
                 included = index % 2 == 0
                 break
         return included
+
+    def is_contiguous(self) -> bool:
+        size = len(self.intervals)
+        return size == 2 or size == 3
+
+    def complement(self) -> CharacterSet:
+        if self.intervals[0] == 0:
+            result = CharacterSet(self.intervals[1:])
+        else:
+            result = CharacterSet([0] + self.intervals)
+        return result
+
+    def divide(self) -> List[CharacterSet]:
+        return []
+
+def new_interval(lower: int, upper:int) -> CharacterSet:
+    initial = [] if lower == upper else [lower, upper]
+    return CharacterSet(initial)
+
 
 class Node:
     def __init__(self, final: bool = False) -> None:
