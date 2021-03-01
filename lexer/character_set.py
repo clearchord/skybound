@@ -1,4 +1,4 @@
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Tuple
 
 class CharacterSet:
     '''文字集合を表す。
@@ -43,6 +43,9 @@ class CharacterSet:
         if len(self.intervals) % 2 == 1:
             self._complement_upper_bound()
 
+    def __str__(self):
+        return f'CS{self.intervals}'
+
     def _complement_lower_bound(self):
         if self.intervals[0] == CharacterSet.LOWER_BOUND:
             self.intervals = self.intervals[1:]
@@ -65,7 +68,7 @@ class CharacterSet:
         codepoint = ord(c[0]) # cに文字列が指定されたら先頭の文字が指定されたものとみなす。
         included = False
         for i in range(0, len(self.intervals), 2):
-            if self.intervals[i] <= c < self.intervals[i + 1]:
+            if self.intervals[i] <= codepoint < self.intervals[i + 1]:
                 included = True
                 break
         return included
@@ -79,33 +82,132 @@ class CharacterSet:
             count += self.intervals[i + 1] - self.intervals[i]
         return count
 
-    def complement(self) -> CharacterSet:
+    def complement(self) -> 'CharacterSet':
         cloned = CharacterSet(self.intervals)
         cloned._complement_lower_bound()
         cloned._complement_upper_bound()
         return cloned
 
-    def divide(self) -> List[CharacterSet]:
-        result = []
-        for i in range(0, len(self.intervals), 2):
-            charset = CharacterSet([self.intervals[i], self.intervals[i + 1]])
-            result.append(charset)
-        return result
+def union(s1: CharacterSet, s2: CharacterSet):
+    collected: List[int] = sorted(set(s1.intervals + s2.intervals))
+    lower_bound = None
+    result = []
+    for i in range(len(collected)):
+        c = collected[i]
+        if lower_bound is None:
+            lower_bound = c
+            continue
+        if s1.includes(chr(c)) or s2.includes(chr(c)):
+            continue
+        else:
+            result.append(lower_bound)
+            result.append(c)
+            lower_bound = None
+    return CharacterSet(result)
+
+def intersection(s1: CharacterSet, s2: CharacterSet):
+    collected: List[int] = sorted(set(s1.intervals + s2.intervals))
+    lower_bound = None
+    result = []
+    for i in range(len(collected)):
+        c = collected[i]
+        if lower_bound is None:
+            if s1.includes(chr(c)) and s2.includes(chr(c)):
+                lower_bound = c
+        else:
+            if s1.includes(chr(c)) and s2.includes(chr(c)):
+                continue
+            else:
+                result.append(lower_bound)
+                result.append(c)
+                lower_bound = None
+    return CharacterSet(result)
+
+def subtract(s1: CharacterSet, s2: CharacterSet):
+    not_s2 = s2.complement()
+    return intersection(s1, not_s2)
+
+if __name__ == '__main__':
+
+    print('==UNION==')
+    print('case01: [0, 256], [128, 1024]')
+    s1 = CharacterSet([0, 256])
+    s2 = CharacterSet([128, 1024])
+    result = union(s1, s2)
+    print(result)
+
+    print('case02: [0, 256], [256, 1024]')
+    s1 = CharacterSet([0, 256])
+    s2 = CharacterSet([256, 1024])
+    result = union(s1, s2)
+    print(result)
+
+    print('case03: [0, 256], [512, 1024]')
+    s1 = CharacterSet([0, 256])
+    s2 = CharacterSet([512, 1024])
+    result = union(s1, s2)
+    print(result)
+
+    print('case03: [0, 1024], [256, 512]')
+    s1 = CharacterSet([0, 1024])
+    s2 = CharacterSet([256, 512])
+    result = union(s1, s2)
+    print(result)
+
+    print('case04: [0, 1024], [256, 512, 1024, 2048]')
+    s1 = CharacterSet([0, 1024])
+    s2 = CharacterSet([256, 512, 1024, 2048])
+    result = union(s1, s2)
+    print(result)
+
+    print('case05: [0, 512, 768, 1280], [256, 1024, 2048, 4096]')
+    s1 = CharacterSet([0, 512, 768, 1280])
+    s2 = CharacterSet([256, 1024, 2048, 4096])
+    result = union(s1, s2)
+    print(result)
+
+    print()
     
-    def divide_into_tuples(self) -> List[Tuple[int, int]]:
-        result = []
-        for i in range(0, len(self.intervals), 2):
-            charset = (self.intervals[i], self.intervals[i + 1])
-            result.append(charset)
-        return result
+    print('==INTERSECTION==')
+    print('case01: [0, 256], [128, 1024] -> [128, 256]')
+    s1 = CharacterSet([0, 256])
+    s2 = CharacterSet([128, 1024])
+    result = intersection(s1, s2)
+    print(result)
 
-    def add_interval(self, interval: CharacterSet) -> CharacterSet:
-        divided_self = self.divide()
-        return None
+    print('case02: [0, 256], [256, 1024] -> []')
+    s1 = CharacterSet([0, 256])
+    s2 = CharacterSet([256, 1024])
+    result = intersection(s1, s2)
+    print(result)
 
-    def subtract_interval(self, interval: CharacterSet) -> CharacterSet:
-        return None
+    print('case03: [0, 256], [512, 1024] -> []')
+    s1 = CharacterSet([0, 256])
+    s2 = CharacterSet([512, 1024])
+    result = intersection(s1, s2)
+    print(result)
 
-def new_interval(lower: int, upper:int) -> CharacterSet:
-    initial = [] if lower == upper else [lower, upper]
-    return CharacterSet(initial)
+    print('case03: [0, 1024], [256, 512] -> [256, 512]')
+    s1 = CharacterSet([0, 1024])
+    s2 = CharacterSet([256, 512])
+    result = intersection(s1, s2)
+    print(result)
+
+    print()
+
+    print('==COMPLEMENT==')
+    print('case01: [256, 512, 1024, 2048]')
+    s1 = CharacterSet([256, 512, 1024, 2048])
+    print(s1.complement())
+
+    print('case02: [0, 512, 1024, 2048]')
+    s1 = CharacterSet([0, 512, 1024, 2048])
+    print(s1.complement())
+
+    print(f'case03: [256, 512, 1024, {CharacterSet.UPPER_BOUND}]')
+    s1 = CharacterSet([256, 512, 1024, CharacterSet.UPPER_BOUND])
+    print(s1.complement())
+
+    print(f'case01: [0, 512, 1024, {CharacterSet.UPPER_BOUND}]')
+    s1 = CharacterSet([0, 512, 1024, CharacterSet.UPPER_BOUND])
+    print(s1.complement())
